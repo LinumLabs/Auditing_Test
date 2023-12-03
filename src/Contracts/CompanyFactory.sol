@@ -16,7 +16,6 @@ contract CompanyFactory is ICompany {
         
     }
 
-    //Register a company
     function registerCompany(string memory _ipfsHash) external {
         require(!isCompanyRegistered[msg.sender], "Company already registered");
 

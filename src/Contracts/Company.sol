@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.20;
 
 
 contract Company {
 
-    constructor() public {
+    address public admin;
+    string public ipfsHash;
 
+    constructor(address _admin, string memory _ipfsHash) public {
+        admin = _admin;
+        ipfsHash = _ipfsHash;
     }
 
     //Pay employee tax

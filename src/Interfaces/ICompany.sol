@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.20;
 
 interface ICompany {
     
-    struct Company {
+    struct CompanyDetails {
         uint256 companyId;
         address companyAdmin;
-        address companyWallet;
+        address companyContractAddress;
         string companyUrl;
     }
-
-
-
 }

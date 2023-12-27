@@ -21,7 +21,7 @@
 // Address Mapping Test:
 // Verify that the companyAddresses mapping is updated correctly with the new company address.
 
-//Overflow Test:
+// Overflow Test:
 // Test the function with a very large number of registrations to ensure that the numberOfCompanies counter does not overflow.
 
 // Edge Case Testing:

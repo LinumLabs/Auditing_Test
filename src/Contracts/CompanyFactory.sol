@@ -1,36 +1,81 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-//import "../../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "../interfaces/ICompany.sol";
 import "./Company.sol";
 
-contract CompanyFactory is ICompany {
+contract CompanyFactory {
 
-    mapping(uint256 => address) public companyAddresses;
-    mapping(address => bool) public isCompanyRegistered;
+    /**
+    ---------------------------------------------------- STATE VARIABLES -------------------------------------------------------------
+     */
 
-    uint128 public numberOfCompanies;
-
-    event CompanyRegistered(uint128 companyId);
-
-    constructor() public {
-        
+    struct CompanyInformation {
+        address wallet;
+        address admin;
+        address contractAddress;
+        bool successfullyRegistered;
     }
 
-    function registerCompany(string memory _ipfsHash) external {
-        require(!isCompanyRegistered[msg.sender], "Company already registered");
+    uint256 public numberOfCompanies;
 
-        Company newCompany = new Company(msg.sender, _ipfsHash);
-        companyAddresses[numberOfCompanies] = address(newCompany);
+    address public governmentAdmin;
 
-        isCompanyRegistered[msg.sender] = true;
 
-        emit CompanyRegistered(numberOfCompanies);
+    mapping(uint256 => CompanyInformation) public companies;
+    mapping(address => bool) public registered;
 
-        unchecked {
-            numberOfCompanies++;
-        }
+    /**
+    ------------------------------------------------------- CONSTRUCTOR --------------------------------------------------------------
+     */
+
+    constructor() {
+        governmentAdmin = msg.sender;
     }
+
+    /**
+    ----------------------------------------------------- PUBLIC FUNCTIONS -----------------------------------------------------------
+     */
+
+    function requestRegistration(address _wallet) public {
+        require(!registered[msg.sender], "Already registered");
+
+        companies[numberOfCompanies] = CompanyInformation({
+            wallet: _wallet,
+            admin: msg.sender,
+            contractAddress: address(0),
+            successfullyRegistered: false
+        });
+
+        numberOfCompanies++;
+    }
+
+    function updateAdmin(address _newAdmin) public onlyAdmin {
+        governmentAdmin = _newAdmin;
+    }
+
+
+    /**
+    ----------------------------------------------- GOVERNMENT OVERRIDE FUNCTIONS -----------------------------------------------------
+     */
+
+    function acceptCompanyRegistration(uint256 _companyId) public onlyAdmin {
+        companies[_companyId].successfullyRegistered = true;
+
+        Company newCompany = new Company();
+
+        companies[_companyId].contractAddress = address(newCompany);
+    }
+
+
+    /**
+    --------------------------------------------------------- MODIFIERS ---------------------------------------------------------------
+     */
+    
+    modifier onlyAdmin() {
+        require(msg.sender == governmentAdmin, "Not admin");
+        _;
+    }
+
+
+
 }

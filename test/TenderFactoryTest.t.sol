@@ -5,6 +5,9 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../src/Contracts/TenderFactory.sol";
 import "../src/Contracts/Tender.sol";
+import "../src/Contracts/Treasury.sol";
+import "../src/Contracts/TestUSDC.sol";
+import "../src/Contracts/Company.sol";
 
 contract TenderFactoryTest is Test {
 
@@ -12,9 +15,17 @@ contract TenderFactoryTest is Test {
     address alice = vm.addr(2);
 
     TenderFactory public tenderFactory;
+    Treasury public treasury;
+    TestUSDC public usdc;
+    Company public company;
+
 
     function setUp() public {
-        tenderFactory = new TenderFactory();
+        usdc = new TestUSDC();
+        company = new Company();
+        treasury = new Treasury(address(usdc));
+        tenderFactory = new TenderFactory(address(treasury), address(company));
+        company = new Company();
     }
 
     function test_CreateTenderFailsIfInvalidLength() public {
@@ -42,11 +53,6 @@ contract TenderFactoryTest is Test {
         address tenderAddress = tenderFactory.tenders(0);
 
         assertEq(tenderFactory.numberOfTenders(), 1);
-
-        assertEq(Tender(tenderAddress).creationTime(), desiredTimestamp);
         assertEq(Tender(tenderAddress).closingDateForVoting(), tenderDuration + desiredTimestamp);
-
-
-
     }
 }

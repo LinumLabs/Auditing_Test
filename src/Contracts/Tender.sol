@@ -2,6 +2,8 @@
 pragma solidity 0.8.20;
 
 import "./Project.sol";
+import "./Treasury.sol";
+import "./CompanyFactory.sol";
 
 contract Tender {
 
@@ -10,6 +12,7 @@ contract Tender {
      */
 
     struct Proposal {
+        uint256 companyId;
         uint256 numberOfVotes;
         string uri;
     }
@@ -20,6 +23,7 @@ contract Tender {
         DECLINED,
         PROPOSING,
         PROPOSAL_VOTING,
+        VOTING_CLOSED,
         AWARDED
     }
 
@@ -32,6 +36,8 @@ contract Tender {
 
     address public tenderAdmin;
     address public winningProposalContract;
+    address public treasuryAddress;
+    address public companyContractAddress;
 
     string public ipfsHash;
 
@@ -45,12 +51,21 @@ contract Tender {
     ------------------------------------------------------- CONSTRUCTOR --------------------------------------------------------------
      */
 
-    constructor(uint256 _duration, uint256 _requiredNumberOfVotes, address _tenderAdmin, string memory _ipfsHash) {
+    constructor(
+        uint256 _duration, 
+        uint256 _requiredNumberOfVotes, 
+        address _tenderAdmin, 
+        address _treasury, 
+        address _company,
+        string memory _ipfsHash
+    ) {
         closingDateForVoting = block.timestamp + _duration;
         tenderState = TenderState.VOTING;
         requiredNumberOfVotes = _requiredNumberOfVotes;
         ipfsHash = _ipfsHash;
         tenderAdmin = _tenderAdmin;
+        treasuryAddress = _treasury;
+        companyContractAddress = _company;
     }
 
     /**
@@ -63,7 +78,7 @@ contract Tender {
     ///      to be awarded the tender.
     function yesVote() public {
         require(tenderState == TenderState.VOTING, "Voting complete");
-        require(yesVoted[msg.sender] == false, "Already voted");
+        require(!yesVoted[msg.sender], "Already voted");
         require(tenderState == TenderState.VOTING, "Voting complete");
         require(block.timestamp <= closingDateForVoting, "Voting complete");
 
@@ -79,9 +94,13 @@ contract Tender {
     /// @notice Users can propose to fullfil the tender
     /// @dev Anyone can propose but must have all their documents and details on IPFS for voters to be able to view
     /// @param _uri the link the IPFS where all the data around the proposal is stored
-    function propose(string memory _uri) public {
+    function propose(string memory _uri, uint256 _companyId) public {
+        (, address admin,,) = CompanyFactory(companyContractAddress).companies(_companyId);
+
+        require(msg.sender == admin, "Not company admin");
         require(tenderState == TenderState.PROPOSING, "Not open to proposals");
         proposals[numberOfProposals] = Proposal({
+            companyId: _companyId,
             numberOfVotes: 0,
             uri: _uri
         });
@@ -94,7 +113,7 @@ contract Tender {
     /// @param _proposalId the ID of the proposal to vote for
     function voteForProposal(uint256 _proposalId) public {
         require(tenderState == TenderState.PROPOSAL_VOTING, "Not open to proposal voting");
-        require(votedForProposal[msg.sender][_proposalId] == false, "Already voted for proposal");
+        require(!votedForProposal[msg.sender][_proposalId], "Already voted for proposal");
 
         proposals[_proposalId].numberOfVotes++;
         votedForProposal[msg.sender][_proposalId] = true;
@@ -134,12 +153,19 @@ contract Tender {
         tenderState = TenderState.PROPOSAL_VOTING;
     }
 
-    function closeProposalVotingAndAward() public onlyAdmin {
+    function closeProposalVoting() public onlyAdmin {
         require(tenderState == TenderState.PROPOSAL_VOTING, "Tender not currently in proposal voting");
 
-        _awardProposal();
+        tenderState = TenderState.VOTING_CLOSED;
+    }
 
-        tenderState = TenderState.AWARDED;
+    function awardProposal(uint256 _fundingAmount) public onlyAdmin {
+        Project newProject = new Project(address(this), proposals[currentWinningProposal].companyId);
+
+        winningProposal = currentWinningProposal;
+        winningProposalContract = address(newProject);
+
+        Treasury(treasuryAddress).fundProject(_fundingAmount, address(newProject));
     }
 
     function updateAdmin(address _newAdmin) public onlyAdmin {
@@ -149,14 +175,6 @@ contract Tender {
     /**
     ----------------------------------------------------- INTERNAL FUNCTIONS ----------------------------------------------------------
      */
-
-    function _awardProposal() internal {
-        Project newProject = new Project();
-
-        winningProposal = currentWinningProposal;
-
-        winningProposalContract = address(newProject);
-    }
 
     /**
     --------------------------------------------------------- MODIFIERS ---------------------------------------------------------------

@@ -3,6 +3,9 @@ pragma solidity 0.8.20;
 
 contract Project {
 
+    address public tenderContract;
+    uint256 public companyId;
+
     /**
     ---------------------------------------------------- STATE VARIABLES -------------------------------------------------------------
      */
@@ -12,8 +15,9 @@ contract Project {
     ------------------------------------------------------- CONSTRUCTOR --------------------------------------------------------------
      */
 
-    constructor() {
-      
+    constructor(address _tender, uint256 _companyId) {
+        tenderContract = _tender;
+        companyId = _companyId;
     }
 
     /**

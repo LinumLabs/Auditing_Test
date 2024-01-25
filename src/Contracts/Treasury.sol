@@ -5,6 +5,8 @@ import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract Treasury is Ownable {
 
+    uint256 public fee;
+
     constructor() Ownable(msg.sender) {
 
     }

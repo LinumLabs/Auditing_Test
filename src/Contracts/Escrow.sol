@@ -37,9 +37,9 @@ contract Escrow is Ownable {
     }
 
     function completeSale() external onlyOwner {
-        uint256 sellFee = Treasury(payable(treasury)).fee();
+        uint256 sellFee = Treasury(payable(treasury)).protocolFee();
 
-        uint256 commission = IERC20(USDC).balanceOf(address(this)) * sellFee / 100;
+        uint256 commission = IERC20(USDC).balanceOf(address(this)) * sellFee / 10000;
 
         IERC20(USDC).transfer(sellerAddress, IERC20(USDC).balanceOf(address(this)) - commission);
         IERC20(USDC).transfer(payable(treasury), commission);

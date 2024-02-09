@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "./Escrow.sol";
 import "./RewardToken.sol";
 
@@ -42,12 +41,10 @@ contract Core is Ownable {
 
     uint256 public numberOfListings = 1;
 
-    address public USDC;
     address public treasury;
     address public rewardToken;
 
-    constructor(address _USDC, address _treasury, address _rewardToken) Ownable(msg.sender) {
-        USDC = _USDC;
+    constructor(address _treasury, address _rewardToken) Ownable(msg.sender) {
         treasury = _treasury;
         rewardToken = _rewardToken;
     }
@@ -74,12 +71,17 @@ contract Core is Ownable {
 
     function cancelListing(uint256 _listingId) external {
         require(msg.sender == listings[_listingId].owner, "Not listing creator");
+        require(
+            listings[_listingId].status == Listing_Status.LISTED, "Listing already cancelled or sold"
+        );
 
         listings[_listingId].status = Listing_Status.CANCELLED;
+        numberOfListings--;
 
     }
 
-    function makeOffer(uint256 _listingId, uint256 _offerAmount, uint256 _offerLength) external {        
+    //How do you get your money out?
+    function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {        
         require(listings[_listingId].listingId != 0, "Listing does not exist");
         require(
             listings[_listingId].status == Listing_Status.LISTED || 
@@ -93,7 +95,7 @@ contract Core is Ownable {
         offersPerListing[_listingId][numberOfOffersForListing] = Offer({
             offerId: numberOfOffersForListing,
             listingId: _listingId,
-            offerAmount: _offerAmount,
+            offerAmount: msg.value,
             timeOfOffer: block.timestamp,
             offerLength: _offerLength,
             offerOwner: msg.sender,
@@ -102,19 +104,25 @@ contract Core is Ownable {
         });
 
         offersListingId[numberOfOffersForListing] = _listingId;
-        listings[_listingId].status = Listing_Status.UNDER_OFFER;
 
-        IERC20(USDC).approve(address(this), _offerAmount);
         RewardToken(rewardToken).mint(
             RewardToken.Reward_Action.MADE_OFFER, 
-            _offerAmount, 
+            msg.value, 
             msg.sender
         );
     }
 
-    function acceptOffer(uint256 _offerId) external {
+    function cancelOffer(uint256 _listingId, uint256 _offerId) external {
+        require(msg.sender == offersPerListing[_listingId][_offerId].offerOwner, "Not offer owner");
+        require(offersPerListing[_listingId][_offerId].escrowContract == address(0), "Offer has already been accepted");
+
+        offersPerListing[_listingId][_offerId].offerLength = 0;
+    }
+
+    function acceptOffer(uint256 _offerId) external returns (address) {
         uint256 listingId = offersListingId[_offerId];
         Offer storage offer = offersPerListing[listingId][_offerId];
+        require(!offer.accepted, "Offer already accepted");
         require(msg.sender == listings[listingId].owner, "Not listing owner");
         require(
             listings[listingId].status == Listing_Status.LISTED || 
@@ -130,21 +138,25 @@ contract Core is Ownable {
             owner(), 
             listings[listingId].owner, 
             offersPerListing[listingId][_offerId].offerOwner, 
-            USDC, 
             address(this),
             treasury
         );
+        
+        listings[listingId].status = Listing_Status.UNDER_OFFER;
+        offer.escrowContract = address(escrowContract);
+        offersPerListing[listingId][_offerId].accepted = true;
 
-        IERC20(USDC).transferFrom(offer.offerOwner, address(escrowContract), offer.offerAmount);
+        (bool sent, ) = address(escrowContract).call{value: offer.offerAmount}("");
+        require(sent, "Failed to send Ether");
+
+        return address(escrowContract);
     }
 
     function markOfferComplete(uint256 _offerId) external {
         uint256 listingId = offersListingId[_offerId];
         require(msg.sender == offersPerListing[listingId][_offerId].escrowContract, "Incorrect caller");
 
-        offersPerListing[listingId][_offerId].accepted = true;
         listings[listingId].status = Listing_Status.SOLD;
-        
         listings[listingId].winningOffer = _offerId;
 
         RewardToken(rewardToken).mint(
@@ -165,5 +177,9 @@ contract Core is Ownable {
         require(msg.sender == offersPerListing[listingId][_offerId].escrowContract, "Incorrect caller");
 
         listings[listingId].status = Listing_Status.LISTED;
+        offersPerListing[listingId][_offerId].accepted = false;
     }
+
+    //Allows ether to be sent to this contract
+    receive() external payable {}
 }

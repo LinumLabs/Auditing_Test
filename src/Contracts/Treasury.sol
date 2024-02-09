@@ -2,31 +2,29 @@
 pragma solidity 0.8.20;
 
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract Treasury is Ownable {
     
-    address public USDC;
-
     // % scaled to 10_000
     uint256 public protocolFee;
     uint256 public monsterHoldersPercentage;
 
-    constructor(address _USDC) Ownable(msg.sender) {
-        USDC = _USDC;
+    constructor() Ownable(msg.sender) {
     }
 
     //Holders array gets sent in from FE
     function distributeRewards(address[] memory _holders) external onlyOwner {
-        uint256 contractBalance = IERC20(USDC).balanceOf(address(this));
-        uint256 monsterHoldersShare = monsterHoldersPercentage * contractBalance / 10000;
+        uint256 contractBalance = address(this).balance;
+        uint256 monsterHoldersShare = monsterHoldersPercentage * contractBalance / 10^18;
 
         uint256 holderShare = monsterHoldersShare / _holders.length;
 
-        IERC20(USDC).transfer(msg.sender, contractBalance - monsterHoldersShare);
+        (bool sent, ) = msg.sender.call{value: contractBalance - monsterHoldersShare}("");
+        require(sent, "Failed to send Ether");
 
         for(uint256 x; x < _holders.length; x++) {
-            IERC20(USDC).transfer(_holders[x], holderShare);
+            (sent, ) = _holders[x].call{value: holderShare}("");
+            require(sent, "Failed to send Ether");
         }
     }
 

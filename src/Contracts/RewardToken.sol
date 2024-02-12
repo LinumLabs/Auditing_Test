@@ -28,15 +28,16 @@ contract RewardToken is ERC20, Ownable {
         _mint(_recipient, mintAmount);
     }
 
-    function setRewardForAction(Reward_Action _action, uint256 _numberOfTokens) external onlyOwner {
-        rewardPercentagePerAction[_action] = _numberOfTokens;
+    function setRewardForAction(Reward_Action _action, uint256 _percentage) external onlyOwner {
+        require(_percentage > 0 && _percentage <= 10000, "Invalid percentage");
+        rewardPercentagePerAction[_action] = _percentage;
     }
 
-    function batchSetRewardForAction(Reward_Action[] memory _action, uint256[] memory _numberOfTokens) external onlyOwner {
-        require(_action.length == _numberOfTokens.length, "Invalid array lengths");
+    function batchSetRewardForAction(Reward_Action[] memory _action, uint256[] memory _percentage) external onlyOwner {
+        require(_action.length == _percentage.length, "Invalid array lengths");
         
         for(uint256 x; x < _action.length; x++) {
-            rewardPercentagePerAction[_action[x]] = _numberOfTokens[x];
+            rewardPercentagePerAction[_action[x]] = _percentage[x];
         }
     }
 }

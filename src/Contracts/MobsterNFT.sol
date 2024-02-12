@@ -8,7 +8,7 @@ import "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 contract MobsterNFT is ERC721, Ownable {
 
     uint256 public tokenId;
-    uint256 public requiredTokensForMonsterNFT;
+    uint256 public requiredTokensForMobsterNFT;
 
     address public rewardToken;
 
@@ -18,11 +18,15 @@ contract MobsterNFT is ERC721, Ownable {
     }
 
     function claimNft() external {
-        require(IERC20(rewardToken).balanceOf(msg.sender) >= requiredTokensForMonsterNFT, "Not enough tokens");
+        require(IERC20(rewardToken).balanceOf(msg.sender) >= requiredTokensForMobsterNFT, "Not enough tokens");
 
         tokenId++;
         _safeMint(msg.sender, tokenId, "");
 
-        IERC20(rewardToken).transferFrom(msg.sender, address(this), requiredTokensForMonsterNFT);
+        IERC20(rewardToken).transferFrom(msg.sender, address(this), requiredTokensForMobsterNFT);
+    }
+
+    function setRequiredTokensForMobsterNFT(uint256 _requiredAmount) external onlyOwner {
+        requiredTokensForMobsterNFT = _requiredAmount;
     }
 }

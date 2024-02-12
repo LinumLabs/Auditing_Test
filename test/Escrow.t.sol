@@ -92,6 +92,5 @@ contract EscrowTest is Test {
 
         assertEq(address(currentEscrow).balance, 0 ether);
         assertEq(address(core).balance, 60 ether);
-
     }
 }

@@ -43,19 +43,23 @@ contract PropertyAuction is Ownable {
         require(msg.value > currentWinningBidAmount, "Bid too low");
         require(auctionStillOpen, "Auction closed");
 
+        userCredit[currentWinningBidder] += currentWinningBidAmount;
+
         currentWinningBidAmount = msg.value;
         currentWinningBidder = msg.sender;
     }
 
     function bidWithCredit(uint256 _amount) external {
+        require(_amount > currentWinningBidAmount, "Bid too low");
         require(auctionStillOpen, "Auction closed");
         require(userCredit[msg.sender] >= _amount, "Not enough credit");
 
-        if(_amount > currentWinningBidAmount) {
-            currentWinningBidAmount = _amount;
-            currentWinningBidder = msg.sender;
-            userCredit[msg.sender] -= _amount;
-        }
+
+        userCredit[currentWinningBidder] += currentWinningBidAmount;
+        currentWinningBidAmount = _amount;
+        currentWinningBidder = msg.sender;
+        userCredit[msg.sender] -= _amount;
+        
     }
 
     function withdrawFunds(uint256 _amount) external {
@@ -81,6 +85,8 @@ contract PropertyAuction is Ownable {
         require(block.timestamp <= auctionClosedTime + buyersRemorsePeriod, "Buyers remorse over");
 
         userCredit[msg.sender] += currentWinningBidAmount;
+        currentWinningBidder = address(0);
+        currentWinningBidAmount = startingPrice;
 
         auctionStillOpen = true;
 
@@ -94,9 +100,11 @@ contract PropertyAuction is Ownable {
         uint256 treasuryAmount = currentWinningBidAmount * treasuryFee / 10000;
         uint256 sellerAmount = currentWinningBidAmount - treasuryAmount;
 
+        auctionStillOpen = false;
+        userCredit[propertyOwner] += sellerAmount;
+
         (bool sent, ) = payable(treasury).call{value: treasuryAmount}("");
         require(sent, "Failed to send Ether");
 
-        userCredit[propertyOwner] += sellerAmount;
     }
 }

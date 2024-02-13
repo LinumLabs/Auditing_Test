@@ -29,9 +29,9 @@ contract EscrowTest is Test {
     function beforeEach() public {
         vm.startPrank(owner);
 
-        treasury = new Treasury();
         rewardToken = new RewardToken();
         mobsterNFT = new MobsterNFT(address(rewardToken));
+        treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
 
         treasury.setProtocolFee(5000);
@@ -50,7 +50,7 @@ contract EscrowTest is Test {
         vm.warp(3 days);
 
         vm.prank(alice);
-        address escrow = core.acceptOffer(1);
+        address escrow = core.acceptOffer(1, 1);
 
         currentEscrow = Escrow(payable(escrow));
     }
@@ -91,6 +91,6 @@ contract EscrowTest is Test {
         assertEq(uint256(status), 0);
 
         assertEq(address(currentEscrow).balance, 0 ether);
-        assertEq(address(core).balance, 60 ether);
+        assertEq(bob.balance, 100 ether);
     }
 }

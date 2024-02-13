@@ -37,7 +37,7 @@ contract Escrow is Ownable {
 
         uint256 commission = address(this).balance * sellFee / 10000;
         
-        Core(payable(coreContract)).markOfferComplete(offerId);
+        Core(payable(coreContract)).markOfferComplete(listingId, offerId);
 
         (bool sent, ) = sellerAddress.call{value: address(this).balance - commission}("");
         require(sent, "Failed to send Ether");
@@ -48,9 +48,9 @@ contract Escrow is Ownable {
 
     function rejectSale() external onlyOwner {
         
-        Core(payable(coreContract)).markOfferFailed(offerId);
+        Core(payable(coreContract)).markOfferFailed(listingId, offerId);
 
-        (bool sent, ) = coreContract.call{value: address(this).balance}("");
+        (bool sent, ) = buyerAddress.call{value: address(this).balance}("");
         require(sent, "Failed to send Ether");
     }
 

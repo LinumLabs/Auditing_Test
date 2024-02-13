@@ -2,7 +2,8 @@
 pragma solidity 0.8.20;
 
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "forge-std/console.sol";
+
+import "./MobsterNFT.sol";
 
 contract Treasury is Ownable {
     
@@ -10,15 +11,26 @@ contract Treasury is Ownable {
     uint256 public protocolFee;
     uint256 public monsterHoldersPercentage;
 
-    constructor() Ownable(msg.sender) {
+    address public mobsterNFT;
+
+    constructor(address _mobsterNFT) Ownable(msg.sender) {
+        mobsterNFT = _mobsterNFT;
     }
 
     //Holders array gets sent in from FE
     function distributeRewards(address[] memory _holders) external onlyOwner {
+        for(uint256 x; x < _holders.length; x++) {
+            require(MobsterNFT(mobsterNFT).balanceOf(_holders[x]) > 0, "Does not own NFT");
+        }
+
         uint256 contractBalance = address(this).balance;
         uint256 monsterHoldersShare = monsterHoldersPercentage * contractBalance / 10000;
 
-        uint256 holderShare = monsterHoldersShare / _holders.length;
+        uint256 holderShare;
+
+        if(_holders.length > 0){
+            holderShare = monsterHoldersShare / _holders.length;
+        }
 
         (bool sent, ) = msg.sender.call{value: contractBalance - monsterHoldersShare}("");
         require(sent, "Failed to send Ether");

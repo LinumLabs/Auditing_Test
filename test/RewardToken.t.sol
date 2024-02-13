@@ -27,9 +27,9 @@ contract RewardTokenTest is Test {
     function beforeEach() public {
         vm.startPrank(owner);
 
-        treasury = new Treasury();
         rewardToken = new RewardToken();
         mobsterNFT = new MobsterNFT(address(rewardToken));
+        treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
 
         vm.stopPrank();

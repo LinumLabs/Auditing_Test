@@ -27,9 +27,9 @@ contract CoreTest is Test {
     function beforeEach() public {
         vm.startPrank(owner);
 
-        treasury = new Treasury();
         rewardToken = new RewardToken();
         mobsterNFT = new MobsterNFT(address(rewardToken));
+        treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
 
         vm.stopPrank();
@@ -101,7 +101,6 @@ contract CoreTest is Test {
         vm.deal(bob, 100 ether);
 
         assertEq(rewardToken.balanceOf(address(bob)), 0);
-        assertEq(core.offersListingId(1), 0);
 
         core.makeOffer{value: 60 ether}(1, 10 days);
 
@@ -109,7 +108,6 @@ contract CoreTest is Test {
         (,, uint256 numberOfOffers ,,,,) = core.listings(1);
 
         assertEq(numberOfOffers, 1);
-        assertEq(core.offersListingId(1), 1);
 
         (
             uint256 offerId,
@@ -171,7 +169,7 @@ contract CoreTest is Test {
         vm.warp(3 days);
 
         vm.prank(alice);
-        address escrow = core.acceptOffer(1);
+        address escrow = core.acceptOffer(1, 1);
 
         (
             uint256 offerId,

@@ -37,7 +37,6 @@ contract Core is Ownable {
 
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => mapping(uint256 => Offer)) public offersPerListing;
-    mapping(uint256 => uint256) public offersListingId;
 
     uint256 public numberOfListings = 1;
 
@@ -103,8 +102,6 @@ contract Core is Ownable {
             accepted: false
         });
 
-        offersListingId[numberOfOffersForListing] = _listingId;
-
         RewardToken(rewardToken).mint(
             RewardToken.Reward_Action.MADE_OFFER, 
             msg.value, 
@@ -119,32 +116,31 @@ contract Core is Ownable {
         offersPerListing[_listingId][_offerId].offerLength = 0;
     }
 
-    function acceptOffer(uint256 _offerId) external returns (address) {
-        uint256 listingId = offersListingId[_offerId];
-        Offer storage offer = offersPerListing[listingId][_offerId];
+    function acceptOffer(uint256 _listingId, uint256 _offerId) external returns (address) {
+        Offer storage offer = offersPerListing[_listingId][_offerId];
         require(!offer.accepted, "Offer already accepted");
-        require(msg.sender == listings[listingId].owner, "Not listing owner");
+        require(msg.sender == listings[_listingId].owner, "Not listing owner");
         require(
-            listings[listingId].status == Listing_Status.LISTED || 
-            listings[listingId].status == Listing_Status.UNDER_OFFER, 
+            listings[_listingId].status == Listing_Status.LISTED || 
+            listings[_listingId].status == Listing_Status.UNDER_OFFER, 
             "Listing cancelled or sold"
         );
-        require(offer.listingId == listingId, "Offer not apart of supplied listing");
+        require(offer.listingId == _listingId, "Offer not apart of supplied listing");
         require(block.timestamp <= offer.timeOfOffer + offer.offerLength, "Offer has run out");
 
         Escrow escrowContract = new Escrow(
-            listingId, 
+            _listingId, 
             _offerId, 
             owner(), 
-            listings[listingId].owner, 
-            offersPerListing[listingId][_offerId].offerOwner, 
+            listings[_listingId].owner, 
+            offersPerListing[_listingId][_offerId].offerOwner, 
             address(this),
             treasury
         );
         
-        listings[listingId].status = Listing_Status.UNDER_OFFER;
+        listings[_listingId].status = Listing_Status.UNDER_OFFER;
         offer.escrowContract = address(escrowContract);
-        offersPerListing[listingId][_offerId].accepted = true;
+        offersPerListing[_listingId][_offerId].accepted = true;
 
         (bool sent, ) = address(escrowContract).call{value: offer.offerAmount}("");
         require(sent, "Failed to send Ether");
@@ -152,32 +148,31 @@ contract Core is Ownable {
         return address(escrowContract);
     }
 
-    function markOfferComplete(uint256 _offerId) external {
-        uint256 listingId = offersListingId[_offerId];
-        require(msg.sender == offersPerListing[listingId][_offerId].escrowContract, "Incorrect caller");
+    function markOfferComplete(uint256 _listingId, uint256 _offerId) external {
+        require(msg.sender == offersPerListing[_listingId][_offerId].escrowContract, "Incorrect caller");
 
-        listings[listingId].status = Listing_Status.SOLD;
-        listings[listingId].winningOffer = _offerId;
+        listings[_listingId].status = Listing_Status.SOLD;
+        listings[_listingId].winningOffer = _offerId;
+        offersPerListing[_listingId][_offerId].offerLength = 0;
 
         RewardToken(rewardToken).mint(
             RewardToken.Reward_Action.SOLD_PROPERTY, 
-            offersPerListing[listingId][_offerId].offerAmount, 
-            listings[listingId].owner
+            offersPerListing[_listingId][_offerId].offerAmount, 
+            listings[_listingId].owner
         );
 
         RewardToken(rewardToken).mint(
             RewardToken.Reward_Action.PURCHASED_PROPERTY, 
-            offersPerListing[listingId][_offerId].offerAmount, 
-            offersPerListing[listingId][_offerId].offerOwner
+            offersPerListing[_listingId][_offerId].offerAmount, 
+            offersPerListing[_listingId][_offerId].offerOwner
         );
     }
 
-    function markOfferFailed(uint256 _offerId) external {
-        uint256 listingId = offersListingId[_offerId];
-        require(msg.sender == offersPerListing[listingId][_offerId].escrowContract, "Incorrect caller");
+    function markOfferFailed(uint256 _listingId, uint256 _offerId) external {
+        require(msg.sender == offersPerListing[_listingId][_offerId].escrowContract, "Incorrect caller");
 
-        listings[listingId].status = Listing_Status.LISTED;
-        offersPerListing[listingId][_offerId].accepted = false;
+        listings[_listingId].status = Listing_Status.LISTED;
+        offersPerListing[_listingId][_offerId].accepted = false;
     }
 
     //Allows ether to be sent to this contract

@@ -29,9 +29,9 @@ contract TreasuryTest is Test {
     function beforeEach() public {
         vm.startPrank(owner);
 
-        treasury = new Treasury();
         rewardToken = new RewardToken();
         mobsterNFT = new MobsterNFT(address(rewardToken));
+        treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
 
         treasury.setProtocolFee(5000);
@@ -50,7 +50,7 @@ contract TreasuryTest is Test {
         vm.warp(3 days);
 
         vm.prank(alice);
-        address escrow = core.acceptOffer(1);
+        address escrow = core.acceptOffer(1, 1);
 
         currentEscrow = Escrow(payable(escrow));
 
@@ -79,8 +79,10 @@ contract TreasuryTest is Test {
     function test_DistributeRewards() public {
         beforeEach();
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         treasury.setMonsterHolderPercentage(2000);
+        mobsterNFT.setRequiredTokensForMobsterNFT(5 ether);
+        vm.stopPrank();
 
         assertEq(address(treasury).balance, 30 ether);
 
@@ -88,6 +90,24 @@ contract TreasuryTest is Test {
         holders[0] = bob;
         holders[1] = chad;
         holders[2] = dan;
+
+        vm.startPrank(bob);
+        rewardToken.mint(RewardToken.Reward_Action.PURCHASED_PROPERTY, 51 ether, bob);
+        rewardToken.approve(address(mobsterNFT), mobsterNFT.requiredTokensForMobsterNFT());
+        mobsterNFT.claimNft();
+        vm.stopPrank();
+
+        vm.startPrank(chad);
+        rewardToken.mint(RewardToken.Reward_Action.PURCHASED_PROPERTY, 51 ether, chad);
+        rewardToken.approve(address(mobsterNFT), mobsterNFT.requiredTokensForMobsterNFT());
+        mobsterNFT.claimNft();
+        vm.stopPrank();
+
+        vm.startPrank(dan);
+        rewardToken.mint(RewardToken.Reward_Action.PURCHASED_PROPERTY, 51 ether, dan);
+        rewardToken.approve(address(mobsterNFT), mobsterNFT.requiredTokensForMobsterNFT());
+        mobsterNFT.claimNft();
+        vm.stopPrank();
 
         vm.prank(owner);
         treasury.distributeRewards(holders);

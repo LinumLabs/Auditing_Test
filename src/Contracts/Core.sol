@@ -79,7 +79,6 @@ contract Core is Ownable {
 
     }
 
-    //How do you get your money out?
     function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {        
         require(listings[_listingId].listingId != 0, "Listing does not exist");
         require(

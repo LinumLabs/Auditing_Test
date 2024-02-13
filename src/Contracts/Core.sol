@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "./Escrow.sol";
 import "./RewardToken.sol";
+import "./PropertyAuction.sol";
 
 contract Core is Ownable {
 
@@ -37,6 +38,7 @@ contract Core is Ownable {
 
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => mapping(uint256 => Offer)) public offersPerListing;
+    mapping(uint256 => address) public auctions;
 
     uint256 public numberOfListings = 1;
 
@@ -66,6 +68,19 @@ contract Core is Ownable {
             _price, 
             msg.sender
         );
+    }
+
+    function listSaleForAuction(
+        string memory _uri, 
+        uint256 _startingPrice,
+        uint256 _buyersRemorsePeriod
+    ) external returns (address) {
+        PropertyAuction propertyAuction = new PropertyAuction(_uri, _startingPrice, _buyersRemorsePeriod, treasury, msg.sender);
+
+        auctions[numberOfListings] = address(propertyAuction);
+        numberOfListings++;
+
+        return address(propertyAuction);
     }
 
     function cancelListing(uint256 _listingId) external {

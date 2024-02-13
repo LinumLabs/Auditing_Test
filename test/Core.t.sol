@@ -8,6 +8,7 @@ import "../src/contracts/Core.sol";
 import "../src/contracts/Escrow.sol";
 import "../src/contracts/MobsterNFT.sol";
 import "../src/contracts/RewardToken.sol";
+import "../src/contracts/PropertyAuction.sol";
 
 contract CoreTest is Test {
 
@@ -171,16 +172,7 @@ contract CoreTest is Test {
         vm.prank(alice);
         address escrow = core.acceptOffer(1, 1);
 
-        (
-            uint256 offerId,
-            uint256 listingId,
-            uint256 offerAmount,
-            uint256 timeOfOffer,
-            uint256 offerLength,
-            address offerOwner,
-            address escrowContract,
-            bool accepted
-        ) = core.offersPerListing(1, 1);
+        (,,,,,, address escrowContract,) = core.offersPerListing(1, 1);
 
         assertEq(escrowContract, escrow);
         assertEq(escrow.balance, 60 ether);
@@ -195,5 +187,22 @@ contract CoreTest is Test {
         assertEq((currentEscrow).coreContract(), address(core));
         assertEq((currentEscrow).treasury(), address(treasury));
         assertEq((currentEscrow).owner(), address(owner));
+    }
+
+    function test_ListForAuction() public {
+        beforeEach();
+
+        vm.prank(bob);
+        address auctionContract = core.listSaleForAuction("Bob", 10 ether, 7 days);
+
+        assertEq(PropertyAuction(auctionContract).startingPrice(), 10 ether);
+        assertEq(PropertyAuction(auctionContract).currentWinningBidAmount(), 10 ether);
+        assertEq(PropertyAuction(auctionContract).buyersRemorsePeriod(), 7 days);
+        assertEq(PropertyAuction(auctionContract).auctionClosedTime(), 0);
+        assertEq(PropertyAuction(auctionContract).currentWinningBidder(), address(0));
+        assertEq(PropertyAuction(auctionContract).propertyOwner(), bob);
+        assertEq(PropertyAuction(auctionContract).treasury(), address(treasury));
+        assertEq(PropertyAuction(auctionContract).auctionStillOpen(), true);
+        assertEq(PropertyAuction(auctionContract).uri(), "Bob");
     }
 }

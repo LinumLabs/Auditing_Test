@@ -18,17 +18,21 @@ contract PropertyAuction is Ownable {
     address public propertyOwner;
 
     bool public auctionStillOpen;
+    string public uri;
 
     mapping(address => uint256) public userCredit;
 
     
     constructor(
+        string memory _uri,
         uint256 _startingPrice, 
         uint256 _buyersRemorsePeriod, 
         address _treasury, 
         address _propertyOwner
     ) Ownable(_propertyOwner) {
+        uri = _uri;
         startingPrice = _startingPrice;
+        currentWinningBidAmount = _startingPrice;
         buyersRemorsePeriod = _buyersRemorsePeriod;
         auctionStillOpen = true;
         treasury = _treasury;
@@ -36,15 +40,11 @@ contract PropertyAuction is Ownable {
     }
 
     function bidWithETH() external payable {
+        require(msg.value > currentWinningBidAmount, "Bid too low");
         require(auctionStillOpen, "Auction closed");
-        uint256 bidAmount = msg.value;
 
-        if(bidAmount > currentWinningBidAmount) {
-            currentWinningBidAmount = bidAmount;
-            currentWinningBidder = msg.sender;
-        } else {
-            userCredit[msg.sender] += bidAmount;
-        }
+        currentWinningBidAmount = msg.value;
+        currentWinningBidder = msg.sender;
     }
 
     function bidWithCredit(uint256 _amount) external {
@@ -77,7 +77,7 @@ contract PropertyAuction is Ownable {
 
     function bailOutOfPurchase() external {
         require(msg.sender == currentWinningBidder, "Not current winning bidder");
-        require(auctionStillOpen, "Auction closed");
+        require(!auctionStillOpen, "Auction still open");
         require(block.timestamp <= auctionClosedTime + buyersRemorsePeriod, "Buyers remorse over");
 
         userCredit[msg.sender] += currentWinningBidAmount;
@@ -87,8 +87,8 @@ contract PropertyAuction is Ownable {
     }
 
     function settleAuction() external onlyOwner {
-        require(block.timestamp > auctionClosedTime + buyersRemorsePeriod, "Buyers remorse over");
-        require(auctionStillOpen, "Auction closed");
+        require(block.timestamp >= auctionClosedTime + buyersRemorsePeriod, "Buyers remorse time");
+        require(!auctionStillOpen, "Auction closed");
 
         uint256 treasuryFee = Treasury(payable(treasury)).protocolFee();
         uint256 treasuryAmount = currentWinningBidAmount * treasuryFee / 10000;

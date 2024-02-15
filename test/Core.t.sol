@@ -51,18 +51,20 @@ contract CoreTest is Test {
             uint256 listingId,
             uint256 price,
             uint256 numberOfOffers,
-            uint256 winningOffer,
+            address finalizedBuyer,
             address ownerOfListing,
             Core.Listing_Status status,
+            Core.List_Type listType,
             string memory ipfsHash    
         ) = core.listings(1);
 
         assertEq(listingId, 1);
         assertEq(price, 72 ether);
         assertEq(numberOfOffers, 0);
-        assertEq(winningOffer, 0);
+        assertEq(finalizedBuyer, address(0));
         assertEq(ownerOfListing, address(alice));
         assertEq(uint256(status), 0);
+        assertEq(uint256(listType), 0);
         assertEq(ipfsHash, "random_uri");
 
         assertEq(rewardToken.balanceOf(address(alice)), 1.8 ether);
@@ -84,7 +86,7 @@ contract CoreTest is Test {
 
         core.cancelListing(1);
 
-        (,,,,, Core.Listing_Status status,) = core.listings(1);
+        (,,,,, Core.Listing_Status status,,) = core.listings(1);
 
         assertEq(core.numberOfListings(), 1);
         assertEq(uint256(status), 3);
@@ -106,7 +108,7 @@ contract CoreTest is Test {
         core.makeOffer{value: 60 ether}(1, 10 days);
 
 
-        (,, uint256 numberOfOffers ,,,,) = core.listings(1);
+        (,, uint256 numberOfOffers ,,,,,) = core.listings(1);
 
         assertEq(numberOfOffers, 1);
 

@@ -63,9 +63,9 @@ contract EscrowTest is Test {
         vm.prank(owner);
         currentEscrow.completeSale();
 
-        (,,, uint256 winningOffer,, Core.Listing_Status status,) = core.listings(1);
+        (,,, address finalizedBuyer,, Core.Listing_Status status,,) = core.listings(1);
 
-        assertEq(winningOffer, 1);
+        assertEq(finalizedBuyer, bob);
         assertEq(uint256(status), 2);
 
         assertEq(address(currentEscrow).balance, 0 ether);
@@ -84,7 +84,7 @@ contract EscrowTest is Test {
         vm.prank(owner);
         currentEscrow.rejectSale();
 
-        (,,,,, Core.Listing_Status status,) = core.listings(1);
+        (,,,,, Core.Listing_Status status,,) = core.listings(1);
         (,,,,,,, bool accepted) = core.offersPerListing(1,1);
 
         assertEq(accepted, false);

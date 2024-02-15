@@ -15,13 +15,20 @@ contract Core is Ownable {
         CANCELLED
     }
 
+    enum List_Type {
+        STANDARD,
+        AUCTION,
+        GIVEAWAY
+    }
+
     struct Listing {
         uint256 listingId;
         uint256 price;
         uint256 numberOfOffers;
-        uint256 winningOffer;
+        address finalizedBuyer;
         address owner;
         Listing_Status status;
+        List_Type typeOfListing;
         string ipfsHash;
     }
 
@@ -39,6 +46,8 @@ contract Core is Ownable {
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => mapping(uint256 => Offer)) public offersPerListing;
     mapping(uint256 => address) public auctions;
+    mapping(uint256 => mapping(uint256 => address)) public giveawayValidAddresses;
+    mapping(uint256 => mapping(address => bool)) public giveawayOptedIn;
 
     uint256 public numberOfListings = 1;
 
@@ -55,9 +64,10 @@ contract Core is Ownable {
             listingId: numberOfListings,
             price: _price,
             numberOfOffers: 0,
-            winningOffer: 0,
+            finalizedBuyer: address(0),
             owner: msg.sender,
             status: Listing_Status.LISTED,
+            typeOfListing: List_Type.STANDARD,
             ipfsHash: _uri
         });
 
@@ -75,7 +85,33 @@ contract Core is Ownable {
         uint256 _startingPrice,
         uint256 _buyersRemorsePeriod
     ) external returns (address) {
-        PropertyAuction propertyAuction = new PropertyAuction(_uri, _startingPrice, _buyersRemorsePeriod, treasury, msg.sender);
+        PropertyAuction propertyAuction = new PropertyAuction(
+            _uri, 
+            _startingPrice, 
+            _buyersRemorsePeriod, 
+            numberOfListings,
+            treasury, 
+            msg.sender,
+            rewardToken
+        );
+
+        //Number of offers stays 0 for auction listings
+        listings[numberOfListings] = Listing({
+            listingId: numberOfListings,
+            price: _startingPrice,
+            numberOfOffers: 0,
+            finalizedBuyer: address(0),
+            owner: msg.sender,
+            status: Listing_Status.LISTED,
+            typeOfListing: List_Type.AUCTION,
+            ipfsHash: _uri
+        });
+
+        RewardToken(rewardToken).mint(
+            RewardToken.Reward_Action.LISTED_PROPERTY, 
+            _startingPrice, 
+            msg.sender
+        );
 
         auctions[numberOfListings] = address(propertyAuction);
         numberOfListings++;
@@ -83,15 +119,109 @@ contract Core is Ownable {
         return address(propertyAuction);
     }
 
+    function updateAuctionWinner(uint256 _listingId, address _winner) external {
+        require(msg.sender == auctions[_listingId], "Incorrect auction contract");
+
+        listings[_listingId].finalizedBuyer = _winner;
+    }
+
+    function updateAuctionStatus(uint256 _listingId, Listing_Status _status) external {
+        require(msg.sender == auctions[_listingId], "Incorrect auction contract");
+
+        listings[_listingId].status = _status;
+    }
+
+    function createGiveaway(
+        string memory _uri,
+        uint256 _eligibilityAmount
+    ) external {
+
+        listings[numberOfListings] = Listing({
+            listingId: numberOfListings,
+            price: _eligibilityAmount,
+            numberOfOffers: 0,
+            finalizedBuyer: address(0),
+            owner: msg.sender,
+            status: Listing_Status.LISTED,
+            typeOfListing: List_Type.GIVEAWAY,
+            ipfsHash: _uri
+        });
+
+        numberOfListings++;
+
+        RewardToken(rewardToken).mint(
+            RewardToken.Reward_Action.LISTED_PROPERTY, 
+            _eligibilityAmount, 
+            msg.sender
+        );
+    }
+
+    function optIntoGiveaway(uint256 _giveawayId) external payable {
+        require(msg.value == listings[_giveawayId].price, "Incorrect value");
+        require(!giveawayOptedIn[_giveawayId][msg.sender], "Already opted in");
+        require(listings[_giveawayId].typeOfListing == List_Type.GIVEAWAY, "Not a giveaway");
+        require(listings[_giveawayId].status == Listing_Status.LISTED, "Listing already sold");
+
+        giveawayValidAddresses[_giveawayId][listings[_giveawayId].numberOfOffers] = msg.sender;
+        giveawayOptedIn[_giveawayId][msg.sender] = true;
+        listings[_giveawayId].numberOfOffers++;
+
+        RewardToken(rewardToken).mint(
+            RewardToken.Reward_Action.MADE_OFFER, 
+            msg.value, 
+            msg.sender
+        );
+    }
+
+    function closeGiveaway(uint256 _giveawayId) external returns (address) {
+        require(msg.sender == listings[_giveawayId].owner || msg.sender == owner(), "Invalid permissions");
+        require(listings[_giveawayId].status == Listing_Status.LISTED, "Listing already sold");
+        uint256 numberOfParticipants = listings[_giveawayId].numberOfOffers;
+
+        uint256 randomNumber = uint256(
+            keccak256(
+                abi.encodePacked(
+                    msg.sender, 
+                    numberOfParticipants, 
+                    block.timestamp,
+                    "GIVEAWAY",
+                    _giveawayId
+                )
+            )
+        ) % listings[_giveawayId].numberOfOffers;
+
+        address winner = giveawayValidAddresses[_giveawayId][randomNumber];
+
+        listings[_giveawayId].finalizedBuyer = winner;
+        listings[_giveawayId].status = Listing_Status.SOLD;
+
+        RewardToken(rewardToken).mint(
+            RewardToken.Reward_Action.PURCHASED_PROPERTY, 
+            listings[_giveawayId].price, 
+            winner
+        );
+
+        RewardToken(rewardToken).mint(
+            RewardToken.Reward_Action.SOLD_PROPERTY, 
+            listings[_giveawayId].price, 
+            listings[_giveawayId].owner
+        );
+
+        return winner;
+    }
+
     function cancelListing(uint256 _listingId) external {
         require(msg.sender == listings[_listingId].owner, "Not listing creator");
-        require(
-            listings[_listingId].status == Listing_Status.LISTED, "Listing already cancelled or sold"
-        );
+        
+
+        if(listings[_listingId].typeOfListing == List_Type.AUCTION) {
+            PropertyAuction(auctions[_listingId]).cancelAuction();
+        } else {
+            require(listings[_listingId].status == Listing_Status.LISTED, "Listing already cancelled or sold");
+        }
 
         listings[_listingId].status = Listing_Status.CANCELLED;
         numberOfListings--;
-
     }
 
     function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {        
@@ -166,7 +296,7 @@ contract Core is Ownable {
         require(msg.sender == offersPerListing[_listingId][_offerId].escrowContract, "Incorrect caller");
 
         listings[_listingId].status = Listing_Status.SOLD;
-        listings[_listingId].winningOffer = _offerId;
+        listings[_listingId].finalizedBuyer = offersPerListing[_listingId][_offerId].offerOwner;
         offersPerListing[_listingId][_offerId].offerLength = 0;
 
         RewardToken(rewardToken).mint(

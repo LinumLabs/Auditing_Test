@@ -34,7 +34,6 @@ contract Escrow is Ownable {
 
     function completeSale() external onlyOwner {
         uint256 sellFee = Treasury(payable(treasury)).protocolFee();
-
         uint256 commission = address(this).balance * sellFee / 10000;
         
         Core(payable(coreContract)).markOfferComplete(listingId, offerId);

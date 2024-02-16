@@ -80,6 +80,8 @@ contract CoreTest is Test {
     function test_CancelListing() public {
         beforeEach();
 
+        // Cancel standard listing
+
         vm.startPrank(alice);
         core.listSale("random_uri", 72 ether);
 
@@ -89,7 +91,40 @@ contract CoreTest is Test {
 
         (,,,,, Core.Listing_Status status,,) = core.listings(1);
 
-        assertEq(core.numberOfListings(), 1);
+        assertEq(core.numberOfListings(), 2);
+        assertEq(uint256(status), 3);
+
+        vm.stopPrank();
+
+        // Cancel auction listing
+
+        vm.prank(dan);
+        address auctionContract = core.listSaleForAuction("Dan", 1 ether, 7 days);
+
+        vm.prank(elvis);
+        vm.deal(elvis, 100 ether);
+        PropertyAuction(auctionContract).bidWithETH{value: 12 ether}();
+
+        vm.prank(alice);
+        vm.deal(alice, 100 ether);
+        PropertyAuction(auctionContract).bidWithETH{value: 15 ether}();
+
+        vm.prank(dan);
+        core.cancelListing(2);
+
+        assertEq(PropertyAuction(auctionContract).userCredit(elvis), 12 ether);
+        assertEq(PropertyAuction(auctionContract).userCredit(alice), 15 ether);
+        assertEq(address(auctionContract).balance, 27 ether);
+
+        // Cancel giveaway
+
+        vm.startPrank(greg);
+        core.createGiveaway("Greg", 2 ether);
+
+        core.cancelListing(3);
+
+        (,,,,, status,,) = core.listings(3);
+
         assertEq(uint256(status), 3);
     }
 

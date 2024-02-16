@@ -6,6 +6,7 @@ import "./Escrow.sol";
 import "./RewardToken.sol";
 import "./PropertyAuction.sol";
 import "./Treasury.sol";
+import "forge-std/console.sol";
 
 contract Core is Ownable {
 
@@ -354,12 +355,13 @@ contract Core is Ownable {
 
         if(listings[_listingId].typeOfListing == List_Type.AUCTION) {
             PropertyAuction(auctions[_listingId]).cancelAuction();
+        } else if(listings[_listingId].typeOfListing == List_Type.GIVEAWAY){
+            require(listings[_listingId].numberOfOffers == 0, "Already received offers");
         } else {
             require(listings[_listingId].status == Listing_Status.LISTED, "Listing already cancelled or sold");
         }
 
         listings[_listingId].status = Listing_Status.CANCELLED;
-        numberOfListings--;
     }
 
     //Allows ether to be sent to this contract

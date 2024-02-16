@@ -70,6 +70,7 @@ contract EscrowTest is Test {
 
         assertEq(address(currentEscrow).balance, 0 ether);
         assertEq(address(treasury).balance, 30 ether);
+        assertEq(address(alice).balance, 30 ether);
 
         assertEq(rewardToken.balanceOf(address(alice)), 4.8 ether);
         assertEq(rewardToken.balanceOf(address(bob)), 6.03 ether);

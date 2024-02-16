@@ -123,6 +123,8 @@ contract PropertyAuction is Ownable {
     function cancelAuction() external {
         require(msg.sender == address(payable(core)), "Not called by Core.sol");
 
+        userCredit[currentWinningBidder] += currentWinningBidAmount;
+
         auctionStillOpen = false;
     }
 

@@ -46,16 +46,19 @@ contract PropertyAuctionTest is Test {
 
     function test_BidWithETH() public {
         beforeEach();
-        vm.prank(elvis);
+        vm.startPrank(elvis);
         vm.deal(elvis, 100 ether);
 
         assertEq(address(auction).balance, 0);
+        assertEq(rewardToken.balanceOf(elvis), 0);
         
         auction.bidWithETH{value: 10.01 ether}();
         
+        assertEq(rewardToken.balanceOf(elvis), 0.005005 ether);
         assertEq(address(auction).balance, 10.01 ether);
         assertEq(auction.currentWinningBidAmount(), 10.01 ether);
         assertEq(auction.currentWinningBidder(), elvis);
+        vm.stopPrank();
     }
 
     function bidWithCredit() public {
@@ -72,8 +75,12 @@ contract PropertyAuctionTest is Test {
 
         vm.startPrank(elvis);
         auction.bailOutOfPurchase();
+        
+        assertEq(address(auction).balance, 0);
+
         auction.bidWithCredit(1 ether);
 
+        assertEq(address(auction).balance, 0.0005 ether);
         assertEq(address(auction).balance, 12 ether);
         assertEq(auction.userCredit(elvis), 11 ether);
         assertEq(auction.currentWinningBidAmount(), 1 ether);
@@ -95,6 +102,9 @@ contract PropertyAuctionTest is Test {
         vm.prank(bob);
         auction.closeAuction();
         
+        (,,,,, Core.Listing_Status status,,) = core.listings(1);
+
+        assertEq(uint256(status), 1);               
         assertEq(auction.auctionStillOpen(), false);
         assertEq(auction.auctionClosedTime(), 100);
     }
@@ -114,6 +124,9 @@ contract PropertyAuctionTest is Test {
         vm.prank(elvis);
         auction.bailOutOfPurchase();
 
+        (,,,,, Core.Listing_Status status,,) = core.listings(1);
+
+        assertEq(uint256(status), 0);               
         assertEq(auction.userCredit(elvis), 12 ether);
         assertEq(auction.auctionStillOpen(), true);
     }
@@ -135,9 +148,16 @@ contract PropertyAuctionTest is Test {
         vm.prank(bob);
         auction.settleAuction();
 
+        (,,, address finalizedBuyer ,, Core.Listing_Status status,,) = core.listings(1);
+
+        assertEq(uint256(status), 2);   
+        assertEq(finalizedBuyer, elvis);            
         assertEq(address(treasury).balance, 6 ether);
         assertEq(address(auction).balance, 6 ether);
         assertEq(auction.userCredit(bob), 6 ether);
+
+        assertEq(rewardToken.balanceOf(bob), 0.85 ether);
+        assertEq(rewardToken.balanceOf(elvis), 1.206 ether);
     }
     
     function test_WithdrawFunds() public {

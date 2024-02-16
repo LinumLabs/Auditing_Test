@@ -118,7 +118,6 @@ contract PropertyAuction is Ownable {
         auctionStillOpen = true;
 
         Core(payable(core)).updateAuctionStatus(listingId, Core.Listing_Status.LISTED);
-
     }
 
     function cancelAuction() external {

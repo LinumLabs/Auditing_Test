@@ -32,6 +32,7 @@ contract CoreTest is Test {
         mobsterNFT = new MobsterNFT(address(rewardToken));
         treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
+        treasury.setProtocolFee(5000);
 
         vm.stopPrank();
     }
@@ -107,7 +108,6 @@ contract CoreTest is Test {
 
         core.makeOffer{value: 60 ether}(1, 10 days);
 
-
         (,, uint256 numberOfOffers ,,,,,) = core.listings(1);
 
         assertEq(numberOfOffers, 1);
@@ -131,9 +131,7 @@ contract CoreTest is Test {
         assertEq(offerOwner, address(bob));
         assertEq(escrowContract, address(0));
         assertEq(accepted, false);
-
         assertEq(address(core).balance, 60 ether);
-
         assertEq(rewardToken.balanceOf(address(bob)), 0.03 ether);
     }
 
@@ -153,6 +151,7 @@ contract CoreTest is Test {
 
         (,,,, uint256 offerLength,,,) =  core.offersPerListing(1, 1);
 
+        assertEq(core.userCredit(bob), 60 ether);
         assertEq(offerLength, 0);
     }
 
@@ -194,6 +193,8 @@ contract CoreTest is Test {
     function test_ListForAuction() public {
         beforeEach();
 
+        assertEq(rewardToken.balanceOf(bob), 0);
+
         vm.prank(bob);
         address auctionContract = core.listSaleForAuction("Bob", 10 ether, 7 days);
 
@@ -206,5 +207,118 @@ contract CoreTest is Test {
         assertEq(PropertyAuction(auctionContract).treasury(), address(treasury));
         assertEq(PropertyAuction(auctionContract).auctionStillOpen(), true);
         assertEq(PropertyAuction(auctionContract).uri(), "Bob");
+        assertEq(rewardToken.balanceOf(bob), 0.25 ether);
     }
+
+    function test_CreateGiveaway() public {
+        beforeEach();
+        vm.prank(bob);
+
+        core.createGiveaway("Giveaway", 1 ether);
+
+        (
+            uint256 listingId,
+            uint256 price,
+            uint256 numberOfOffers,
+            address finalizedBuyer,
+            address ownerOfGiveaway,
+            Core.Listing_Status status,
+            Core.List_Type listType,
+            string memory ipfs) = core.listings(1);
+
+            assertEq(listingId, 1);
+            assertEq(price, 1 ether);
+            assertEq(numberOfOffers, 0);
+            assertEq(finalizedBuyer, address(0));
+            assertEq(ownerOfGiveaway, address(bob));
+            assertEq(uint256(status), 0);
+            assertEq(uint256(listType), 2);
+            assertEq(ipfs, "Giveaway");
+            assertEq(core.numberOfListings(), 2);
+
+            assertEq(rewardToken.balanceOf(bob), 0.025 ether);
+    }
+
+    function test_OptIntoGiveaway() public {
+        beforeEach();
+        vm.prank(bob);
+
+        core.createGiveaway("Giveaway", 1 ether);
+
+        vm.deal(alice, 10 ether);
+        vm.prank(alice);
+
+        core.optIntoGiveaway{value: 1 ether}(1);
+
+        (,, uint256 numberOfOffers,,,,,) = core.listings(1);
+
+        assertEq(address(core).balance, 1 ether);
+        assertEq(core.giveawayAmountRaised(1), 1 ether);
+        assertEq(core.giveawayValidAddresses(1, 0), alice);
+        assertEq(core.giveawayOptedIn(1, alice), true);
+        assertEq(numberOfOffers, 1);
+        assertEq(rewardToken.balanceOf(alice), 0.0005 ether);
+    }
+
+    function test_CloseGiveaway() public {
+        beforeEach();
+        vm.prank(bob);
+
+        core.createGiveaway("Giveaway", 1 ether);
+
+        vm.deal(alice, 10 ether);
+        vm.deal(elvis, 10 ether);
+
+        vm.prank(alice);
+        core.optIntoGiveaway{value: 1 ether}(1);
+
+        vm.prank(elvis);
+        core.optIntoGiveaway{value: 1 ether}(1);
+
+        assertEq(address(core).balance, 2 ether);
+
+        vm.prank(bob);
+        address winner = core.closeGiveaway(1);
+
+        (,,, address finalizedBuyer,, Core.Listing_Status status,,) = core.listings(1);
+
+        if(winner == alice) {
+            assertEq(finalizedBuyer, alice);
+            assertEq(rewardToken.balanceOf(alice), 0.1005 ether);
+        } else if(winner == elvis) {
+            assertEq(finalizedBuyer, elvis);
+            assertEq(rewardToken.balanceOf(elvis), 0.1005 ether);
+        }
+
+        assertEq(rewardToken.balanceOf(bob), 0.075 ether);
+        assertEq(uint256(status), 2);
+        assertEq(address(core).balance, 1 ether);
+        assertEq(address(treasury).balance, 1 ether);
+        assertEq(core.userCredit(bob), 1 ether);
+    }
+
+    function test_WithdrawFunds() public {
+        beforeEach();
+        vm.prank(bob);
+
+        core.createGiveaway("Giveaway", 1 ether);
+
+        vm.deal(alice, 10 ether);
+        vm.deal(elvis, 10 ether);
+
+        vm.prank(alice);
+        core.optIntoGiveaway{value: 1 ether}(1);
+
+        vm.prank(elvis);
+        core.optIntoGiveaway{value: 1 ether}(1);
+
+        vm.startPrank(bob);
+        core.closeGiveaway(1);
+
+        core.withdrawFunds(0.7 ether);
+        assertEq(bob.balance, 0.7 ether);
+        assertEq(core.userCredit(bob), 0.3 ether);
+    }
+
+
 }

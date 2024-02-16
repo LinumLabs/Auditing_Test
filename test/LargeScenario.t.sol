@@ -39,6 +39,7 @@ contract LargeScenarioTest is Test {
         treasury = new Treasury(address(mobsterNFT));
         core = new Core(address(treasury), address(rewardToken));
         treasury.setProtocolFee(5000);
+        treasury.setMonsterHolderPercentage(2000);
         mobsterNFT.setRequiredTokensForMobsterNFT(5 ether);
 
         vm.deal(owner, 100 ether);
@@ -66,6 +67,10 @@ contract LargeScenarioTest is Test {
     // Treasury distribution
     function test_LargeScenario() public {
         beforeEach();
+
+    // --------------------------------------------------------------------------------------------------------------------
+    // -------------------------------------------- CREATING LISTINGS -----------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------
         
         // Listing 1
         vm.prank(bob);
@@ -132,6 +137,10 @@ contract LargeScenarioTest is Test {
         assertEq(uint256(status), 3);
 
         vm.warp(2 days);
+
+    // --------------------------------------------------------------------------------------------------------------------
+    // ------------------------------------------ BIDDING ON LISTINGS -----------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------
 
         vm.prank(greg);
         core.makeOffer{value: 4.8 ether}(2, 7 days);
@@ -201,12 +210,107 @@ contract LargeScenarioTest is Test {
 
         assertEq(rewardToken.totalSupply(), 6.06843 ether);
 
+    // --------------------------------------------------------------------------------------------------------------------
+    // ------------------------------------------ COMPLETING LISTINGS -----------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------
 
+        vm.prank(alice);
+        address escrowOfferOne = core.acceptOffer(2, 1);
+        assertEq(escrowOfferOne.balance, 4.8 ether);
+        assertEq(address(core).balance, 190.16 ether);
 
+        uint256 gregInitialBalance = greg.balance;
 
+        vm.prank(owner);
+        Escrow(payable(escrowOfferOne)).rejectSale();
+        assertEq(escrowOfferOne.balance, 0 ether);
+        assertEq(address(core).balance, 190.16 ether);
+        assertEq(address(greg).balance, gregInitialBalance + 4.8 ether);
 
+        vm.prank(alice);
+        address escrowTwo = core.acceptOffer(2, 2);
+        assertEq(escrowTwo.balance, 4.9 ether);
+        assertEq(address(core).balance, 185.26 ether);
 
+        uint256 aliceInitialBalance = alice.balance;
 
+        vm.prank(owner);
+        Escrow(payable(escrowTwo)).completeSale();
+        assertEq(escrowOfferOne.balance, 0 ether);
+        assertEq(address(treasury).balance, 2.45 ether);
+        assertEq(address(alice).balance, aliceInitialBalance + 2.45 ether);
+        // 0.6275 ether (creating listings) + 0.245 (selling a property) 
+        assertEq(rewardToken.balanceOf(alice), 0.8725 ether);
+        // 0.12746 ether (previous interactions) + 0.49 (buying a property) 
+        assertEq(rewardToken.balanceOf(elvis), 0.61746 ether);
 
+        vm.warp(29 days);
+
+        vm.prank(dan);
+        address winner = core.closeGiveaway(6);
+
+        (,,, finalBuyer,,,,) = core.listings(6);
+
+        if(winner == elvis) {
+            assertEq(finalBuyer, elvis);
+            // 0.61746 ether (after buying property) + 0.002 ether (winning giveaway)
+            assertEq(rewardToken.balanceOf(elvis), 0.61946 ether);
+        } else if(winner == greg) {
+            assertEq(finalBuyer, greg);
+            // 0.00241 ether (making offers) + 0.002 ether (winning giveaway)
+            assertEq(rewardToken.balanceOf(greg), 0.00441 ether);
+        } else if(winner == robyn) {
+            assertEq(finalBuyer, robyn);
+            // 0.00001 ether (opting into giveaway) + 0.002 ether (winning giveaway)
+            assertEq(rewardToken.balanceOf(robyn), 0.00201 ether);
+        }
+
+        // 0.00855 ether (previous interactions) + 0.001 ether (donating giveaway)
+        assertEq(rewardToken.balanceOf(dan), 0.00955 ether);
+        assertEq(address(treasury).balance, 2.48 ether);
+        assertEq(core.userCredit(dan), 0.03 ether);
+
+        vm.startPrank(alice);
+        PropertyAuction(auctionOne).closeAuction();
+        vm.warp(37 days);
+        PropertyAuction(auctionOne).settleAuction();
+        vm.stopPrank();
+
+        assertEq(address(treasury).balance, 9.98 ether);
+        assertEq(auctionOne.balance, 18.5 ether);
+        assertEq(PropertyAuction(auctionOne).userCredit(alice), 7.5 ether);
+        // 0.8725 ether (previous interactions) + 0.75 ether (selling property)
+        assertEq(rewardToken.balanceOf(alice), 1.6225 ether);
+        // 0.0075 ether (previous interactions) + 1.5 ether (selling property)
+        assertEq(rewardToken.balanceOf(casey), 1.5075 ether);
+
+    // --------------------------------------------------------------------------------------------------------------------
+    // ------------------------------------------------- CLAIMING NFT -----------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------
+
+        vm.startPrank(bob);
+        assertEq(mobsterNFT.balanceOf(bob), 0);
+        assertEq(rewardToken.balanceOf(bob), 5 ether);
+        rewardToken.approve(address(mobsterNFT), 5 ether);
+        mobsterNFT.claimNft();
+        assertEq(mobsterNFT.balanceOf(bob), 1);
+        assertEq(rewardToken.balanceOf(bob), 0 ether);
+        vm.stopPrank();
+       
+    // --------------------------------------------------------------------------------------------------------------------
+    // --------------------------------------------- TREASURY DISTRIBUTION ------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------
+
+        address[] memory holders = new address[](1);
+        holders[0] = bob;
+
+        uint256 bobBalanceBeforeDistribution = bob.balance;
+        uint256 ownerBalanceBeforeDistribution = owner.balance;
+
+        vm.prank(owner);
+        treasury.distributeRewards(holders);
+        assertEq(address(treasury).balance, 0 ether);
+        assertEq(bob.balance, bobBalanceBeforeDistribution + 1.996 ether);
+        assertEq(owner.balance, ownerBalanceBeforeDistribution + 7.984 ether);
     }
 }

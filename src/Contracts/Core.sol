@@ -6,7 +6,6 @@ import "./Escrow.sol";
 import "./RewardToken.sol";
 import "./PropertyAuction.sol";
 import "./Treasury.sol";
-import "forge-std/console.sol";
 
 contract Core is Ownable {
 

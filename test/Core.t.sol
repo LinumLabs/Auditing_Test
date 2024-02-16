@@ -319,6 +319,4 @@ contract CoreTest is Test {
         assertEq(bob.balance, 0.7 ether);
         assertEq(core.userCredit(bob), 0.3 ether);
     }
-
-
 }

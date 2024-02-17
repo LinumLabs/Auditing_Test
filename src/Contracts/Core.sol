@@ -70,6 +70,8 @@ contract Core is Ownable {
     // --------------------------------------- STANDARD LISTING FUNCTIONALITY ---------------------------------------------
     // --------------------------------------------------------------------------------------------------------------------
 
+    // Anyone can create a standard listing
+    // The URI for all listings is a link to an IPFS hash with all the property information
     function listSale(string memory _uri, uint256 _price) external {
         listings[numberOfListings] = Listing({
             listingId: numberOfListings,
@@ -91,6 +93,7 @@ contract Core is Ownable {
         );
     }
 
+    // Anyone can make an offer on a standard listing
     function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {        
         require(listings[_listingId].listingId != 0, "Listing does not exist");
         require(
@@ -120,6 +123,7 @@ contract Core is Ownable {
         );
     }
 
+    // A user can cancel their offer
     function cancelOffer(uint256 _listingId, uint256 _offerId) external {
         require(msg.sender == offersPerListing[_listingId][_offerId].offerOwner, "Not offer owner");
         require(offersPerListing[_listingId][_offerId].escrowContract == address(0), "Offer has already been accepted");
@@ -128,6 +132,7 @@ contract Core is Ownable {
         userCredit[msg.sender] += offersPerListing[_listingId][_offerId].offerAmount;
     }
 
+    // The creator of a listing can accept an offer
     function acceptOffer(uint256 _listingId, uint256 _offerId) external returns (address) {
         Offer storage offer = offersPerListing[_listingId][_offerId];
         require(!offer.accepted, "Offer already accepted");
@@ -160,6 +165,7 @@ contract Core is Ownable {
         return address(escrowContract);
     }
 
+    // The escrow contract can call this function to tell the Core contract that a listing has successfully completed
     function markOfferComplete(uint256 _listingId, uint256 _offerId) external {
         require(msg.sender == offersPerListing[_listingId][_offerId].escrowContract, "Incorrect caller");
 
@@ -180,6 +186,7 @@ contract Core is Ownable {
         );
     }
 
+    // The escrow contract can call this function to tell the Core contract that a listing has been rejected and must be re-opened
     function markOfferFailed(uint256 _listingId, uint256 _offerId) external {
         require(msg.sender == offersPerListing[_listingId][_offerId].escrowContract, "Incorrect caller");
 
@@ -190,6 +197,8 @@ contract Core is Ownable {
     // --------------------------------------------------------------------------------------------------------------------
     // -------------------------------------------- AUCTION FUNCTIONALITY -------------------------------------------------
     // --------------------------------------------------------------------------------------------------------------------
+    
+    // Anyone can list a property for sale via an auction
     function listSaleForAuction(
         string memory _uri, 
         uint256 _startingPrice,
@@ -229,12 +238,14 @@ contract Core is Ownable {
         return address(propertyAuction);
     }
 
+    // An auction contract can tell the Core contract that an auction has a winner
     function updateAuctionWinner(uint256 _listingId, address _winner) external {
         require(msg.sender == auctions[_listingId], "Incorrect auction contract");
 
         listings[_listingId].finalizedBuyer = _winner;
     }
 
+    // An auction contract can tell the Core contract that an auction has changed status
     function updateAuctionStatus(uint256 _listingId, Listing_Status _status) external {
         require(msg.sender == auctions[_listingId], "Incorrect auction contract");
 
@@ -245,6 +256,7 @@ contract Core is Ownable {
     // ------------------------------------------- GIVEAWAY FUNCTIONALITY -------------------------------------------------
     // --------------------------------------------------------------------------------------------------------------------
 
+    // Anyone can list a property via a giveaway
     function createGiveaway(
         string memory _uri,
         uint256 _eligibilityAmount
@@ -270,6 +282,7 @@ contract Core is Ownable {
         );
     }
 
+    // Anyone can opt into giveaways buy paying the giveaway entrance
     function optIntoGiveaway(uint256 _giveawayId) external payable {
         require(msg.value == listings[_giveawayId].price, "Incorrect value");
         require(!giveawayOptedIn[_giveawayId][msg.sender], "Already opted in");
@@ -289,6 +302,7 @@ contract Core is Ownable {
         );
     }
 
+    // The giveaway creator can close the giveaway and a winner will be selected
     function closeGiveaway(uint256 _giveawayId) external returns (address) {
         require(msg.sender == listings[_giveawayId].owner || msg.sender == owner(), "Invalid permissions");
         require(listings[_giveawayId].status == Listing_Status.LISTED, "Listing already sold");
@@ -339,6 +353,7 @@ contract Core is Ownable {
     // ---------------------------------------------- GENERAL FUNCTIONALITY -----------------------------------------------
     // --------------------------------------------------------------------------------------------------------------------
 
+    // Users who have credit can use this function to withdraw ETH
     function withdrawFunds(uint256 _amount) external {
         require(userCredit[msg.sender] >= _amount, "Insufficient balance");
 
@@ -348,6 +363,7 @@ contract Core is Ownable {
         require(sent, "Failed to send Ether");
     }
 
+    // Owners of listings can cancel their listings
     function cancelListing(uint256 _listingId) external {
         require(msg.sender == listings[_listingId].owner, "Not listing creator");
         

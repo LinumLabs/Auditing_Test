@@ -23,16 +23,19 @@ contract RewardToken is ERC20, Ownable {
         rewardPercentagePerAction[Reward_Action.PURCHASED_PROPERTY] = 1000;
     }
 
+    // Mint tokens for users performing certain actions
     function mint(Reward_Action _action, uint256 _value, address _recipient) external {
         uint256 mintAmount = _value * rewardPercentagePerAction[_action] / 10000;
         _mint(_recipient, mintAmount);
     }
 
+    // Update what percentage rewards users get for certain actions
     function setRewardForAction(Reward_Action _action, uint256 _percentage) external onlyOwner {
         require(_percentage > 0 && _percentage <= 10000, "Invalid percentage");
         rewardPercentagePerAction[_action] = _percentage;
     }
 
+    // Batch operation for the previous function
     function batchSetRewardForAction(Reward_Action[] memory _action, uint256[] memory _percentage) external onlyOwner {
         require(_action.length == _percentage.length, "Invalid array lengths");
         

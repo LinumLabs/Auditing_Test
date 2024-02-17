@@ -32,6 +32,7 @@ contract Escrow is Ownable {
         treasury = _treasury;
     }
 
+    // The owner of the escrow contract can complete the sale once off-chain verification is complete
     function completeSale() external onlyOwner {
         uint256 sellFee = Treasury(payable(treasury)).protocolFee();
         uint256 commission = address(this).balance * sellFee / 10000;
@@ -45,6 +46,7 @@ contract Escrow is Ownable {
         require(sent, "Failed to send Ether");
     }
 
+    // The owner of the escrow contract can reject the sale 
     function rejectSale() external onlyOwner {
         
         Core(payable(coreContract)).markOfferFailed(listingId, offerId);

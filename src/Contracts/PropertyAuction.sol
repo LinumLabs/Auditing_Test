@@ -49,6 +49,7 @@ contract PropertyAuction is Ownable {
         rewardToken = _rewardToken;
     }
 
+    // Anyone can bid with ETH
     function bidWithETH() external payable {
         require(msg.value > currentWinningBidAmount, "Bid too low");
         require(auctionStillOpen, "Auction closed");
@@ -65,6 +66,7 @@ contract PropertyAuction is Ownable {
         );
     }
 
+    // Anyone with outstanding credit can bid
     function bidWithCredit(uint256 _amount) external {
         require(_amount > currentWinningBidAmount, "Bid too low");
         require(auctionStillOpen, "Auction closed");
@@ -83,6 +85,7 @@ contract PropertyAuction is Ownable {
         
     }
 
+    // Anyone with credit can withdraw funds
     function withdrawFunds(uint256 _amount) external {
         require(userCredit[msg.sender] >= _amount, "Not enough funds");
 
@@ -92,6 +95,7 @@ contract PropertyAuction is Ownable {
         require(sent, "Failed to send Ether");
     }
 
+    // The auction owner can close it to allow the highest bidder the buyers remorse time
     function closeAuction() external onlyOwner {
         require(auctionStillOpen, "Auction closed");
 
@@ -104,6 +108,7 @@ contract PropertyAuction is Ownable {
         Core(payable(core)).updateAuctionStatus(listingId, Core.Listing_Status.UNDER_OFFER);
     }
 
+    // A winning bidder can pull out of the auction as long as it is within the buyers remorse time
     function bailOutOfPurchase() external {
         require(msg.sender == currentWinningBidder, "Not current winning bidder");
         require(!auctionStillOpen, "Auction still open");
@@ -120,6 +125,7 @@ contract PropertyAuction is Ownable {
         Core(payable(core)).updateAuctionStatus(listingId, Core.Listing_Status.LISTED);
     }
 
+    // The auction owner can cancel the auction
     function cancelAuction() external {
         require(msg.sender == address(payable(core)), "Not called by Core.sol");
 
@@ -128,6 +134,7 @@ contract PropertyAuction is Ownable {
         auctionStillOpen = false;
     }
 
+    // The auction owner can settle the auction once the buyer remorse time is over
     function settleAuction() external onlyOwner {
         require(block.timestamp >= auctionClosedTime + buyersRemorsePeriod, "Buyers remorse time");
         require(!auctionStillOpen, "Auction closed");

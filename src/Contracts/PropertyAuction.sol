@@ -27,7 +27,6 @@ contract PropertyAuction is Ownable {
 
     mapping(address => uint256) public userCredit;
 
-    
     constructor(
         string memory _uri,
         uint256 _startingPrice, 
@@ -166,6 +165,5 @@ contract PropertyAuction is Ownable {
 
         (bool sent, ) = payable(treasury).call{value: treasuryAmount}("");
         require(sent, "Failed to send Ether");
-
     }
 }

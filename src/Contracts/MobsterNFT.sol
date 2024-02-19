@@ -32,7 +32,7 @@ contract MobsterNFT is ERC721, Ownable {
         address _from,
         address _to,
         uint256 _tokenID
-    ) public payable override(ERC721) {
+    ) public override(ERC721) {
         require(msg.sender == address(0), "SOULBOUND TOKEN");
         super.transferFrom(_from, _to, _tokenID);
     }

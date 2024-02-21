@@ -33,6 +33,8 @@ contract Core is Ownable {
         string ipfsHash;
     }
 
+    // timeOfOffer refers to when the offer was created
+    // offerLength refers to how long the offer is valid for
     struct Offer {
         uint256 offerId;
         uint256 listingId;

@@ -35,6 +35,7 @@ contract Escrow is Ownable {
     // The owner of the escrow contract can complete the sale once off-chain verification is complete
     function completeSale() external onlyOwner {
         uint256 sellFee = Treasury(payable(treasury)).protocolFee();
+        // magic numbers
         uint256 commission = address(this).balance * sellFee / 10000;
         
         Core(payable(coreContract)).markOfferComplete(listingId, offerId);

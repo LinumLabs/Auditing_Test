@@ -5,8 +5,8 @@ import "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract RewardToken is ERC20, Ownable {
-
     enum Reward_Action {
+        // add defoult values to avoid index mismatch
         LISTED_PROPERTY,
         SOLD_PROPERTY,
         MADE_OFFER,
@@ -17,6 +17,7 @@ contract RewardToken is ERC20, Ownable {
     mapping(Reward_Action => uint256) public rewardPercentagePerAction;
 
     constructor() ERC20("RewardToken", "RewT") Ownable(msg.sender) {
+        // fix magic numbers or add it to constants
         rewardPercentagePerAction[Reward_Action.LISTED_PROPERTY] = 250;
         rewardPercentagePerAction[Reward_Action.SOLD_PROPERTY] = 500;
         rewardPercentagePerAction[Reward_Action.MADE_OFFER] = 5;
@@ -24,22 +25,39 @@ contract RewardToken is ERC20, Ownable {
     }
 
     // Mint tokens for users performing certain actions
-    function mint(Reward_Action _action, uint256 _value, address _recipient) external {
-        uint256 mintAmount = _value * rewardPercentagePerAction[_action] / 10000;
+    function mint(
+        Reward_Action _action,
+        uint256 _value,
+        address _recipient
+    ) external {
+        // fix magic numbers or add it to constants
+        // need to add validation for _value in case it is low value can create overflow
+        // for example, if _value is 10 * MADE_OFFER(5) / 10000 === error
+        // 10 * 5 / 10000 = 0.005
+        uint256 mintAmount = (_value * rewardPercentagePerAction[_action]) / 10000;
         _mint(_recipient, mintAmount);
     }
 
     // Update what percentage rewards users get for certain actions
     function setRewardForAction(Reward_Action _action, uint256 _percentage) external onlyOwner {
+        // fix magic numbers or add it to constants
+        // require is cost more gas than custom error messages
+        // recommend to use custom error messages
         require(_percentage > 0 && _percentage <= 10000, "Invalid percentage");
         rewardPercentagePerAction[_action] = _percentage;
     }
 
     // Batch operation for the previous function
     function batchSetRewardForAction(Reward_Action[] memory _action, uint256[] memory _percentage) external onlyOwner {
+        // require is cost more gas than custom error messages
+        // recommend to use custom error messages
         require(_action.length == _percentage.length, "Invalid array lengths");
-        
-        for(uint256 x; x < _action.length; x++) {
+        // add validation for _percentage values
+
+        // gas optimization
+        // ++x is more efficient than x++
+
+        for (uint256 x; x < _action.length; x++) {
             rewardPercentagePerAction[_action[x]] = _percentage[x];
         }
     }

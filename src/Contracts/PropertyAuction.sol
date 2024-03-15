@@ -167,3 +167,4 @@ contract PropertyAuction is Ownable {
         require(sent, "Failed to send Ether");
     }
 }
+

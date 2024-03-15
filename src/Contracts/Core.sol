@@ -7,9 +7,18 @@ import "./RewardToken.sol";
 import "./PropertyAuction.sol";
 import "./Treasury.sol";
 
+// Warning: Contract code size is 36578 bytes and exceeds 24576 bytes 
+// (a limit introduced in Spurious Dragon). This contract may not be deployable on 
+// Mainnet. Consider enabling the optimizer (with a low "runs" value!), 
+// turning off revert strings, or using libraries.
+
+// recommend
+// to add events for functions
+
 contract Core is Ownable {
 
     enum Listing_Status {
+        // add defoult values to avoid melissious behavior
         LISTED,
         UNDER_OFFER,
         SOLD,
@@ -17,6 +26,7 @@ contract Core is Ownable {
     }
 
     enum List_Type {
+        // add defoult values to avoid melissious behavior
         STANDARD,
         AUCTION,
         GIVEAWAY
@@ -46,6 +56,10 @@ contract Core is Ownable {
         bool accepted;
     }
 
+    // recomend
+    // add param name to mapping
+    // for example: mapping(uint256 listingId => Listing listing) public listings;
+
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => mapping(uint256 => Offer)) public offersPerListing;
     mapping(uint256 => address) public auctions;
@@ -54,7 +68,17 @@ contract Core is Ownable {
     mapping(uint256 => uint256) public giveawayAmountRaised;
     mapping(address => uint256) public userCredit;
 
+    // recomend
+    // move declaration to the top of the contract after struct
+
+    // todo 
+    // check this 
+    // do not used 0 storage slot in memory
     uint256 public numberOfListings = 1;
+
+    // recommend
+    // declare contract as instance 
+    // Treasury public treasury;
 
     address public treasury;
     address public rewardToken;
@@ -64,7 +88,10 @@ contract Core is Ownable {
     // --------------------------------------------------------------------------------------------------------------------
 
     constructor(address _treasury, address _rewardToken) Ownable(msg.sender) {
+
+        // need to add check for address(0)
         treasury = _treasury;
+        // need to add check for address(0)
         rewardToken = _rewardToken;
     }
 
@@ -75,6 +102,7 @@ contract Core is Ownable {
     // Anyone can create a standard listing
     // The URI for all listings is a link to an IPFS hash with all the property information
     function listSale(string memory _uri, uint256 _price) external {
+        // need add validation for _price and _uri
         listings[numberOfListings] = Listing({
             listingId: numberOfListings,
             price: _price,
@@ -86,6 +114,7 @@ contract Core is Ownable {
             ipfsHash: _uri
         });
 
+        // unchecked block
         numberOfListings++;
 
         RewardToken(rewardToken).mint(
@@ -96,8 +125,18 @@ contract Core is Ownable {
     }
 
     // Anyone can make an offer on a standard listing
-    function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {        
+    function makeOffer(uint256 _listingId, uint256 _offerLength) external payable {   
+        // no check for msg.value
+
+        // incorrect check
+        // if listingId = 100 but there are only 10 listings
+        // require is passed 
+        // it is beter to check if numberOfListings < _listingId
         require(listings[_listingId].listingId != 0, "Listing does not exist");
+        // incorrect check  
+        // this check is not helpful
+        // in reason contract does not contain default value for Listing_Status
+        // it is always listed
         require(
             listings[_listingId].status == Listing_Status.LISTED || 
             listings[_listingId].status == Listing_Status.UNDER_OFFER, 
@@ -174,6 +213,12 @@ contract Core is Ownable {
         listings[_listingId].status = Listing_Status.SOLD;
         listings[_listingId].finalizedBuyer = offersPerListing[_listingId][_offerId].offerOwner;
         offersPerListing[_listingId][_offerId].offerLength = 0;
+
+        // reocmmend
+        // gas optimization
+        // it is better to execute mint function once 
+        // just need to add a new function to the RewardToken contract
+        // for example: mintBatch or mintMultiple with values as arrays or structs
 
         RewardToken(rewardToken).mint(
             RewardToken.Reward_Action.SOLD_PROPERTY, 
@@ -309,6 +354,10 @@ contract Core is Ownable {
         require(msg.sender == listings[_giveawayId].owner || msg.sender == owner(), "Invalid permissions");
         require(listings[_giveawayId].status == Listing_Status.LISTED, "Listing already sold");
         uint256 numberOfParticipants = listings[_giveawayId].numberOfOffers;
+
+        // highly risky
+        // pseudo random number generator is not secure
+        // it is better to use chainlink VRF or other secure random number generator
 
         uint256 randomNumber = uint256(
             keccak256(
